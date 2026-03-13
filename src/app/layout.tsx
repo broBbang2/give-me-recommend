@@ -3,7 +3,7 @@ import Header from "@/components/common/header";
 import Footer from "@/components/common/footer";
 
 export const metadata = {
-  title: "오늘의 술 추천",
+  title: "빵이의 추천",
   description: "입문자를 위한 취향 기반 술 추천 서비스",
 };
 
