@@ -9,7 +9,7 @@ interface QuestionCardProps {
 
 export default function QuestionCard({
   question,
-  onSelect,
+  onSelect
 }: QuestionCardProps) {
   return (
     <div className="rounded-2xl border p-6">
@@ -21,7 +21,7 @@ export default function QuestionCard({
             key={String(option.value)}
             type="button"
             onClick={() => onSelect(option.value)}
-            className="rounded-xl border px-4 py-3 text-left text-left hover:bg-muted"
+            className="rounded-xl border px-4 py-3 text-left hover:bg-muted"
           >
             {option.label}
           </button>
