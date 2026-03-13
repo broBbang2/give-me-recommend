@@ -1,17 +1,25 @@
-import { drinks } from "@/data/drinks";
-import DrinkCard from "@/components/drink/drink-card";
+import RecommendationCard from "@/components/drink/recommendation-card";
 import SectionTitle from "@/components/common/section-title";
+import { getCommunityRecommendations } from "@/lib/community-recommendations";
 
-export default function TodayRecommendation() {
-  const todayDrink = drinks[0];
+export default async function TodayRecommendation() {
+  const [latestRecommendation] = await getCommunityRecommendations({ limit: 1 });
+  const todayRecommendation = latestRecommendation?.recommendations[0] ?? null;
 
   return (
     <section>
       <SectionTitle
         title="오늘의 술 추천"
-        description="입문자도 부담 없이 시작할 수 있는 한 잔"
+        description="최근 대화 추천에서 나온 주류를 살펴보세요."
       />
-      <DrinkCard drink={todayDrink} />
+      {todayRecommendation ? (
+        <RecommendationCard recommendation={todayRecommendation} />
+      ) : (
+        <div className="rounded-2xl border p-6 text-sm text-muted-foreground">
+          아직 저장된 추천 결과가 없어요. AI 추천을 완료하면 이곳에 최신 추천이
+          표시됩니다.
+        </div>
+      )}
     </section>
   );
 }

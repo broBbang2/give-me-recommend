@@ -1,23 +1,72 @@
 import { create } from "zustand";
-import { UserAnswers } from "@/types/recommendation";
+import {
+  RecommendChatMessage,
+  RecommendChatRole,
+  RecommendedDrinkItem,
+} from "@/types/recommendation";
+
+const initialAssistantMessageContent =
+  "안녕하세요. 어떤 분위기에서 마실 술을 찾고 계신가요? 좋아하는 맛이나 도수, 평소 잘 마시는 술이 있다면 편하게 알려주세요.";
+
+function createInitialAssistantMessage(): RecommendChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: "assistant",
+    content: initialAssistantMessageContent,
+  };
+}
 
 interface RecommendationState {
-  answers: Partial<UserAnswers>;
-  setAnswer: <K extends keyof UserAnswers>(
-    key: K,
-    value: UserAnswers[K],
-  ) => void;
-  resetAnswers: () => void;
+  messages: RecommendChatMessage[];
+  recommendations: RecommendedDrinkItem[];
+  promptSummary: string;
+  userTasteSummary: string;
+  communitySaved: boolean;
+  status: "idle" | "loading" | "error";
+  error: string | null;
+  addMessage: (role: RecommendChatRole, content: string) => void;
+  setRecommendations: (recommendations: RecommendedDrinkItem[]) => void;
+  setPromptSummary: (summary: string) => void;
+  setUserTasteSummary: (summary: string) => void;
+  setCommunitySaved: (saved: boolean) => void;
+  setStatus: (status: RecommendationState["status"]) => void;
+  setError: (error: string | null) => void;
+  resetConversation: () => void;
 }
 
 export const useRecommendationStore = create<RecommendationState>((set) => ({
-  answers: {},
-  setAnswer: (key, value) =>
+  messages: [createInitialAssistantMessage()],
+  recommendations: [],
+  promptSummary: "",
+  userTasteSummary: "",
+  communitySaved: false,
+  status: "idle",
+  error: null,
+  addMessage: (role, content) =>
     set((state) => ({
-      answers: {
-        ...state.answers,
-        [key]: value,
-      },
+      messages: [
+        ...state.messages,
+        {
+          id: crypto.randomUUID(),
+          role,
+          content,
+        },
+      ],
     })),
-  resetAnswers: () => set({ answers: {} }),
+  setRecommendations: (recommendations) => set({ recommendations }),
+  setPromptSummary: (promptSummary) => set({ promptSummary }),
+  setUserTasteSummary: (userTasteSummary) => set({ userTasteSummary }),
+  setCommunitySaved: (communitySaved) => set({ communitySaved }),
+  setStatus: (status) => set({ status }),
+  setError: (error) => set({ error }),
+  resetConversation: () =>
+    set({
+      messages: [createInitialAssistantMessage()],
+      recommendations: [],
+      promptSummary: "",
+      userTasteSummary: "",
+      communitySaved: false,
+      status: "idle",
+      error: null,
+    }),
 }));

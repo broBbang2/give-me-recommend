@@ -1,13 +1,14 @@
 # Choice
 
 취향 기반으로 입문자에게 어울리는 술을 추천해주는 Next.js 웹 애플리케이션입니다.  
-홈에서 술을 둘러보고, 추천 테스트를 진행한 뒤, 결과를 확인하고 즐겨찾기에 저장할 수 있습니다.
+홈에서 커뮤니티 추천 피드를 둘러보고, AI 추천 화면에서 ChatGPT와 대화하며 취향을 설명한 뒤 추천 결과를 확인하고 즐겨찾기에 저장할 수 있습니다.
 
 ## 주요 기능
 
 - 홈 화면에서 오늘의 추천 술과 입문자 추천 목록 확인
-- 추천 테스트를 통한 취향 기반 술 추천
-- 술 목록 및 상세 페이지 탐색
+- ChatGPT 기반 대화형 술 추천
+- Supabase 기반 커뮤니티 추천 피드
+- 술 상세 페이지 탐색
 - 관심 있는 술 즐겨찾기 저장
 - 정적 데이터 기반 빠른 프로토타이핑
 
@@ -31,6 +32,17 @@
 
 ```bash
 npm install
+```
+
+`.env.local` 파일을 만들고 아래 값을 설정합니다.
+
+```bash
+OPENAI_API_KEY=your_openai_api_key
+# 선택 사항
+OPENAI_MODEL=gpt-4o-mini
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 ```
 
 ### 개발 서버 실행
@@ -62,11 +74,11 @@ npm run lint
 ## 라우트
 
 - `/` : 홈
-- `/drinks` : 술 목록
+- `/drinks` : 커뮤니티 추천 피드
 - `/drinks/[id]` : 술 상세
 - `/favorites` : 즐겨찾기
-- `/recommend` : 추천 테스트
-- `/recommend/result` : 추천 결과
+- `/recommend` : AI 추천 채팅
+- `/recommend/result` : 기존 경로 호환용 리다이렉트
 
 ## 프로젝트 구조
 
@@ -84,16 +96,21 @@ src
 ## 데이터와 상태 관리
 
 - 추천 대상 술 데이터는 `src/data/drinks.ts`에 정의되어 있습니다.
-- 추천 질문 데이터는 `src/data/questions.ts`에 정의되어 있습니다.
-- 추천 테스트 답변 상태는 `src/stores/recommendation-store.ts`에서 관리합니다.
+- 추천 질문 데이터는 `src/data/questions.ts`에 남아 있으며, 현재는 참고용 데이터입니다.
+- AI 추천 대화 상태는 `src/stores/recommendation-store.ts`에서 관리합니다.
 - 즐겨찾기 상태는 `src/stores/favorite-store.ts`에서 관리합니다.
-- 현재는 별도의 API나 데이터베이스 없이 정적 데이터로 동작합니다.
+- 앱 내 술 데이터는 정적 데이터로 유지되며, AI 추천은 `src/app/api/recommend/chat/route.ts`에서 OpenAI API를 호출해 처리합니다.
+- 최종 추천 결과는 `Supabase`의 `community_recommendations` 테이블에 익명 공개 피드로 저장할 수 있습니다.
 
 ## 환경 변수
 
-현재 필수 환경 변수는 없습니다.
+- `OPENAI_API_KEY` : OpenAI API 호출용 키
+- `OPENAI_MODEL` : 선택 사항, 기본값은 `gpt-4o-mini`
+- `NEXT_PUBLIC_SUPABASE_URL` : Supabase 프로젝트 URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` : 향후 클라이언트 사용을 위한 공개 키
+- `SUPABASE_SERVICE_ROLE_KEY` : 서버에서 커뮤니티 추천 저장/조회에 사용하는 키
 
-추후 외부 API, 이미지 CDN, 분석 도구를 연동할 경우 `.env.local` 파일을 추가해 관리하는 것을 권장합니다.
+`Supabase`에는 `supabase/community_recommendations.sql`의 스키마를 먼저 적용해야 합니다.
 
 ## 현재 상태
 
@@ -104,7 +121,9 @@ src
 
 - 자동화 테스트 코드가 아직 없습니다.
 - 일부 술 데이터는 이미지 경로를 포함하고 있지만 실제 이미지 파일은 아직 추가되지 않았습니다.
-- 추천 로직은 현재 정적 규칙 기반이며, 사용자 피드백이나 실시간 데이터는 반영하지 않습니다.
+- OpenAI API 키가 없으면 AI 추천 기능을 사용할 수 없습니다.
+- Supabase 설정이나 테이블 스키마가 없으면 커뮤니티 추천 저장 및 피드 조회가 동작하지 않습니다.
+- 앱 내 데이터에 없는 술은 텍스트 추천 카드로 표시되며, 상세 페이지 연결은 되지 않습니다.
 
 ## 개선 아이디어
 

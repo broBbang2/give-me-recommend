@@ -1,3 +1,5 @@
-import RecommendResultPage from "@/features/recommend/result/page";
+import { redirect } from "next/navigation";
 
-export default RecommendResultPage;
+export default function RecommendResultRoute() {
+  redirect("/recommend");
+}
