@@ -3,8 +3,8 @@ import Header from "@/components/common/header";
 import Footer from "@/components/common/footer";
 
 export const metadata = {
-  title: "오늘의 추천",
-  description: "입문자를 위한 취향 기반 술 추천 서비스",
+  title: "알초추",
+  description: "초보들을 위한 알코올 추천과 안주 추천을 해드려요.",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <Header />
         <main>{children}</main>
         <Footer />

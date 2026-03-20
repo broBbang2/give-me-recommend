@@ -2,8 +2,12 @@ import "server-only";
 
 import { z } from "zod";
 import {
+  extractDetailedRecommendationTags,
   extractRecommendationCategories,
+  normalizeDetailedRecommendationTag,
   normalizeRecommendationCategory,
+  simplifyRecommendationTag,
+  sortSimplifiedRecommendationTags,
 } from "@/lib/drink-category";
 import { toPlainText } from "@/lib/plain-text";
 import type {
@@ -23,6 +27,8 @@ const recommendationItemSchema = z.object({
   category: z.string().nullable(),
   reason: z.string(),
   servingTip: z.string().nullable(),
+  foodPairing: z.string().nullable().default(null),
+  pairingReason: z.string().nullable().default(null),
   existingDrinkId: z.string().nullable(),
 });
 
@@ -34,19 +40,25 @@ const communityRecommendationRowSchema = z.object({
   assistant_reply: z.string(),
   recommendations: z.array(recommendationItemSchema),
   recommendation_categories: z.array(z.string()).default([]),
+  recommendation_detail_tags: z.array(z.string()).default([]),
   primary_drink_id: z.string().nullable(),
   primary_drink_name: z.string().nullable(),
   is_public: z.boolean(),
 });
 
 const communityRecommendationListSelect =
-  "id, created_at, prompt_summary, user_taste_summary, assistant_reply, recommendations, recommendation_categories, primary_drink_id, primary_drink_name, is_public";
+  "id, created_at, prompt_summary, user_taste_summary, assistant_reply, recommendations, recommendation_categories, recommendation_detail_tags, primary_drink_id, primary_drink_name, is_public";
 
 const legacyCommunityRecommendationListSelect =
   "id, created_at, prompt_summary, user_taste_summary, assistant_reply, recommendations, primary_drink_id, primary_drink_name, is_public";
 
 const recommendationCategoriesRowSchema = z.object({
   recommendation_categories: z.array(z.string()).default([]),
+  recommendation_detail_tags: z.array(z.string()).default([]),
+});
+
+const recommendationDetailTagsRowSchema = z.object({
+  recommendation_detail_tags: z.array(z.string()).default([]),
 });
 
 function normalizeRecommendationItems(recommendations: RecommendedDrinkItem[]) {
@@ -56,6 +68,8 @@ function normalizeRecommendationItems(recommendations: RecommendedDrinkItem[]) {
     category: normalizeRecommendationCategory(recommendation.category),
     reason: toPlainText(recommendation.reason),
     servingTip: toPlainText(recommendation.servingTip) || null,
+    foodPairing: toPlainText(recommendation.foodPairing) || null,
+    pairingReason: toPlainText(recommendation.pairingReason) || null,
   }));
 }
 
@@ -80,11 +94,51 @@ function getKeywordSearchPattern(keyword: string) {
 }
 
 function normalizeStoredCategories(categories: string[]) {
-  return [...new Set(
-    categories
-      .map((category) => normalizeRecommendationCategory(category))
-      .filter((category): category is string => Boolean(category)),
-  )].sort((a, b) => a.localeCompare(b, "ko"));
+  const normalizedCategories = categories
+    .map((category) => simplifyRecommendationTag(category))
+    .filter(
+      (
+        category,
+      ): category is Exclude<ReturnType<typeof simplifyRecommendationTag>, null> =>
+        Boolean(category),
+    );
+
+  return sortSimplifiedRecommendationTags([...new Set(normalizedCategories)]);
+}
+
+function getStoredTagFilterValues(tag: string) {
+  const normalizedTag = simplifyRecommendationTag(tag) ?? tag;
+
+  if (normalizedTag === "레드와인") {
+    return ["레드와인"];
+  }
+
+  if (normalizedTag === "화이트와인") {
+    return ["화이트와인"];
+  }
+
+  if (normalizedTag === "와인") {
+    return ["와인", "레드와인", "화이트와인", "스파클링와인"];
+  }
+
+  if (normalizedTag === "칵테일") {
+    return ["칵테일", "하이볼", "리큐르"];
+  }
+
+  return [normalizedTag];
+}
+
+function normalizeStoredDetailTags(categories: string[]) {
+  const normalizedCategories = categories
+    .map((category) => normalizeDetailedRecommendationTag(category))
+    .filter(
+      (
+        category,
+      ): category is Exclude<ReturnType<typeof normalizeDetailedRecommendationTag>, null> =>
+        Boolean(category),
+    );
+
+  return [...new Set(normalizedCategories)].sort((a, b) => a.localeCompare(b, "ko"));
 }
 
 function isMissingRecommendationCategoriesColumnError(error: unknown) {
@@ -94,8 +148,11 @@ function isMissingRecommendationCategoriesColumnError(error: unknown) {
 
   const candidate = error as { code?: string; message?: string };
   return (
-    candidate.code === "42703" &&
-    candidate.message?.includes("recommendation_categories") === true
+    (candidate.code === "42703" || candidate.code === "PGRST204") &&
+    (
+      candidate.message?.includes("recommendation_categories") === true ||
+      candidate.message?.includes("recommendation_detail_tags") === true
+    )
   );
 }
 
@@ -104,6 +161,7 @@ async function getLegacyCommunityRecommendations(options: {
   offset: number;
   keyword: string;
   tag: string;
+  detailTag: string;
   sort: CommunityRecommendationSort;
 }) {
   const supabase = getSupabaseServerClient();
@@ -155,24 +213,36 @@ async function getLegacyCommunityRecommendations(options: {
     .filter((item): item is CommunityRecommendation => item !== null);
 
   const normalizedTag = options.tag
-    ? normalizeRecommendationCategory(options.tag)?.toLowerCase() ?? options.tag.toLowerCase()
+    ? simplifyRecommendationTag(options.tag)?.toLowerCase() ?? options.tag.toLowerCase()
+    : "";
+  const normalizedDetailTag = options.detailTag
+    ? normalizeDetailedRecommendationTag(options.detailTag)?.toLowerCase() ?? options.detailTag.toLowerCase()
     : "";
 
   const tagFilteredRecommendations = normalizedTag
     ? recommendations.filter((item) =>
         item.recommendations.some(
-          (recommendation) => recommendation.category?.toLowerCase() === normalizedTag,
+          (recommendation) => simplifyRecommendationTag(recommendation.category)?.toLowerCase() === normalizedTag,
         ),
       )
     : recommendations;
 
+  const detailTagFilteredRecommendations = normalizedDetailTag
+    ? tagFilteredRecommendations.filter((item) =>
+        item.recommendations.some(
+          (recommendation) =>
+            normalizeDetailedRecommendationTag(recommendation.category)?.toLowerCase() === normalizedDetailTag,
+        ),
+      )
+    : tagFilteredRecommendations;
+
   if (options.sort === "most-recommendations") {
-    return tagFilteredRecommendations
+    return detailTagFilteredRecommendations
       .sort((a, b) => b.recommendations.length - a.recommendations.length)
       .slice(options.offset, options.offset + options.limit);
   }
 
-  return tagFilteredRecommendations.slice(
+  return detailTagFilteredRecommendations.slice(
     options.offset,
     options.offset + options.limit,
   );
@@ -207,6 +277,35 @@ async function getLegacyCommunityRecommendationTags(limit: number) {
   )].sort((a, b) => a.localeCompare(b, "ko"));
 }
 
+async function getLegacyCommunityRecommendationDetailTags(limit: number) {
+  const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    return [] satisfies string[];
+  }
+
+  const { data, error } = await supabase
+    .from("community_recommendations")
+    .select("recommendations")
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    console.error("Failed to load community recommendation detail tags", error);
+    return [] satisfies string[];
+  }
+
+  return [...new Set(
+    data
+      .map((row) =>
+        z.object({ recommendations: z.array(recommendationItemSchema) }).safeParse(row),
+      )
+      .filter((row) => row.success)
+      .flatMap((row) => extractDetailedRecommendationTags(row.data.recommendations)),
+  )].sort((a, b) => a.localeCompare(b, "ko"));
+}
+
 function getPrimaryRecommendation(recommendations: RecommendedDrinkItem[]) {
   return recommendations.find((item) => item.existingDrinkId) ?? recommendations[0];
 }
@@ -225,12 +324,14 @@ export async function saveCommunityRecommendation(input: {
 
   const primaryRecommendation = getPrimaryRecommendation(input.recommendations);
   const recommendationCategories = extractRecommendationCategories(input.recommendations);
+  const recommendationDetailTags = extractDetailedRecommendationTags(input.recommendations);
   let { error } = await supabase.from("community_recommendations").insert({
     prompt_summary: input.promptSummary,
     user_taste_summary: input.userTasteSummary,
     assistant_reply: input.assistantReply,
     recommendations: input.recommendations,
     recommendation_categories: recommendationCategories,
+    recommendation_detail_tags: recommendationDetailTags,
     primary_drink_id: primaryRecommendation?.existingDrinkId ?? null,
     primary_drink_name: primaryRecommendation?.name ?? null,
     is_public: true,
@@ -261,12 +362,14 @@ export async function getCommunityRecommendations(options?: {
   offset?: number;
   keyword?: string;
   tag?: string;
+  detailTag?: string;
   sort?: CommunityRecommendationSort;
 }) {
   const limit = options?.limit ?? 18;
   const offset = options?.offset ?? 0;
   const keyword = options?.keyword?.trim().toLowerCase() ?? "";
   const tag = options?.tag?.trim().toLowerCase() ?? "";
+  const detailTag = options?.detailTag?.trim().toLowerCase() ?? "";
   const sort = options?.sort ?? "latest";
   const supabase = getSupabaseServerClient();
 
@@ -292,8 +395,12 @@ export async function getCommunityRecommendations(options?: {
   }
 
   if (tag) {
-    const normalizedTag = normalizeRecommendationCategory(tag) ?? tag;
-    query = query.contains("recommendation_categories", [normalizedTag]);
+    query = query.overlaps("recommendation_detail_tags", getStoredTagFilterValues(tag));
+  }
+
+  if (detailTag) {
+    const normalizedDetailTag = normalizeDetailedRecommendationTag(detailTag) ?? detailTag;
+    query = query.contains("recommendation_detail_tags", [normalizedDetailTag]);
   }
 
   if (sort === "oldest") {
@@ -302,10 +409,21 @@ export async function getCommunityRecommendations(options?: {
     query = query.order("created_at", { ascending: false });
   }
 
+  if (sort !== "most-recommendations") {
+    query = query.range(offset, offset + limit - 1);
+  }
+
   const { data, error } = await query;
 
   if (isMissingRecommendationCategoriesColumnError(error)) {
-    return getLegacyCommunityRecommendations({ limit, offset, keyword, tag, sort });
+    return getLegacyCommunityRecommendations({
+      limit,
+      offset,
+      keyword,
+      tag,
+      detailTag,
+      sort,
+    });
   }
 
   if (error || !data) {
@@ -337,9 +455,11 @@ export async function getCommunityRecommendations(options?: {
 export async function getCommunityRecommendationCount(options?: {
   keyword?: string;
   tag?: string;
+  detailTag?: string;
 }) {
   const keyword = options?.keyword?.trim().toLowerCase() ?? "";
   const tag = options?.tag?.trim().toLowerCase() ?? "";
+  const detailTag = options?.detailTag?.trim().toLowerCase() ?? "";
   const supabase = getSupabaseServerClient();
 
   if (!supabase) {
@@ -348,7 +468,7 @@ export async function getCommunityRecommendationCount(options?: {
 
   let query = supabase
     .from("community_recommendations")
-    .select(communityRecommendationListSelect)
+    .select("id", { count: "exact" })
     .eq("is_public", true);
 
   if (keyword) {
@@ -364,29 +484,32 @@ export async function getCommunityRecommendationCount(options?: {
   }
 
   if (tag) {
-    const normalizedTag = normalizeRecommendationCategory(tag) ?? tag;
-    query = query.contains("recommendation_categories", [normalizedTag]);
+    query = query.overlaps("recommendation_detail_tags", getStoredTagFilterValues(tag));
   }
 
-  const { data, error } = await query;
+  if (detailTag) {
+    const normalizedDetailTag = normalizeDetailedRecommendationTag(detailTag) ?? detailTag;
+    query = query.contains("recommendation_detail_tags", [normalizedDetailTag]);
+  }
+
+  const { count, error } = await query;
 
   if (isMissingRecommendationCategoriesColumnError(error)) {
-    return getLegacyCommunityRecommendationCount({ keyword, tag });
+    return getLegacyCommunityRecommendationCount({ keyword, tag, detailTag });
   }
 
-  if (error || !data) {
+  if (error) {
     console.error("Failed to load community recommendation count", error);
     return 0;
   }
 
-  return data
-    .map((row) => communityRecommendationRowSchema.safeParse(row))
-    .filter((row) => row.success).length;
+  return count ?? 0;
 }
 
 async function getLegacyCommunityRecommendationCount(options: {
   keyword: string;
   tag: string;
+  detailTag: string;
 }) {
   const supabase = getSupabaseServerClient();
 
@@ -435,11 +558,28 @@ async function getLegacyCommunityRecommendationCount(options: {
   }
 
   const normalizedTag =
-    normalizeRecommendationCategory(options.tag)?.toLowerCase() ?? options.tag.toLowerCase();
+    simplifyRecommendationTag(options.tag)?.toLowerCase() ?? options.tag.toLowerCase();
+  const normalizedDetailTag = options.detailTag
+    ? normalizeDetailedRecommendationTag(options.detailTag)?.toLowerCase() ?? options.detailTag.toLowerCase()
+    : "";
 
-  return recommendations.filter((item) =>
+  const tagFilteredRecommendations = !options.tag
+    ? recommendations
+    : recommendations.filter((item) =>
+        item.recommendations.some(
+          (recommendation) =>
+            simplifyRecommendationTag(recommendation.category)?.toLowerCase() === normalizedTag,
+        ),
+      );
+
+  if (!normalizedDetailTag) {
+    return tagFilteredRecommendations.length;
+  }
+
+  return tagFilteredRecommendations.filter((item) =>
     item.recommendations.some(
-      (recommendation) => recommendation.category?.toLowerCase() === normalizedTag,
+      (recommendation) =>
+        normalizeDetailedRecommendationTag(recommendation.category)?.toLowerCase() === normalizedDetailTag,
     ),
   ).length;
 }
@@ -453,7 +593,7 @@ export async function getCommunityRecommendationTags(limit = 200) {
 
   const { data, error } = await supabase
     .from("community_recommendations")
-    .select("recommendation_categories")
+    .select("recommendation_categories, recommendation_detail_tags")
     .eq("is_public", true)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -467,11 +607,48 @@ export async function getCommunityRecommendationTags(limit = 200) {
     return [] satisfies string[];
   }
 
-  return [...new Set(
+  return sortSimplifiedRecommendationTags([...new Set(
     data
       .map((row) => recommendationCategoriesRowSchema.safeParse(row))
       .filter((row) => row.success)
-      .flatMap((row) => normalizeStoredCategories(row.data.recommendation_categories)),
+      .flatMap((row) =>
+        normalizeStoredCategories(
+          row.data.recommendation_detail_tags.length > 0
+            ? row.data.recommendation_detail_tags
+            : row.data.recommendation_categories,
+        ),
+      ),
+  )]);
+}
+
+export async function getCommunityRecommendationDetailTags(limit = 200) {
+  const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    return [] satisfies string[];
+  }
+
+  const { data, error } = await supabase
+    .from("community_recommendations")
+    .select("recommendation_detail_tags")
+    .eq("is_public", true)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (isMissingRecommendationCategoriesColumnError(error)) {
+    return getLegacyCommunityRecommendationDetailTags(limit);
+  }
+
+  if (error || !data) {
+    console.error("Failed to load community recommendation detail tags", error);
+    return [] satisfies string[];
+  }
+
+  return [...new Set(
+    data
+      .map((row) => recommendationDetailTagsRowSchema.safeParse(row))
+      .filter((row) => row.success)
+      .flatMap((row) => normalizeStoredDetailTags(row.data.recommendation_detail_tags)),
   )].sort((a, b) => a.localeCompare(b, "ko"));
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { getRecommendationTagClassName } from "@/lib/drink-category";
 
 type SortOption = {
   value: "latest" | "oldest" | "most-recommendations";
@@ -43,7 +44,6 @@ export default function CommunityFeedControls({
   }, [initialSort, searchParams, sortOptions]);
 
   const currentTag = searchParams.get("tag") ?? initialTag;
-
   const updateParams = useCallback((updates: Record<string, string | null>) => {
     const currentQueryString = searchParams.toString();
     const params = new URLSearchParams(currentQueryString);
@@ -127,7 +127,7 @@ export default function CommunityFeedControls({
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">키워드 태그</p>
+          <p className="text-sm font-medium">주종 태그</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -151,7 +151,10 @@ export default function CommunityFeedControls({
                   })
                 }
               >
-                <Badge variant={currentTag === tag ? "secondary" : "outline"}>
+                <Badge
+                  variant={currentTag === tag ? "secondary" : "outline"}
+                  className={getRecommendationTagClassName(tag)}
+                >
                   {tag}
                 </Badge>
               </button>

@@ -11,20 +11,19 @@ import { Button } from "@/components/ui/button";
 
 export default function Header() {
   return (
-    <header className="border-b bg-background">
+    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2 text-lg font-bold sm:text-xl"
+          className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight sm:text-xl"
         >
-          
-          <span className="truncate">오늘의 추천</span>
+          <span className="truncate">알초추</span>
         </Link>
 
-        <nav className="hidden items-center gap-4 text-sm md:flex">
-          <Link href="/recommend">추천 테스트</Link>
-          <Link href="/drinks">추천 둘러보기</Link>
-          <Link href="/favorites">즐겨찾기</Link>
+        <nav className="hidden items-center gap-4 text-sm text-muted-foreground md:flex">
+          <Link href="/recommend" className="transition hover:text-foreground">추천 테스트</Link>
+          <Link href="/drinks" className="transition hover:text-foreground">추천 둘러보기</Link>
+          <Link href="/favorites" className="transition hover:text-foreground">즐겨찾기</Link>
         </nav>
 
         <Sheet>
@@ -39,7 +38,7 @@ export default function Header() {
               <Menu />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-72">
+          <SheetContent side="right" className="w-72 border-border/80 bg-card/95">
             <SheetHeader>
               <SheetTitle>메뉴</SheetTitle>
             </SheetHeader>
