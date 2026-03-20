@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import {
@@ -18,19 +17,13 @@ export default function Header() {
           href="/"
           className="flex min-w-0 items-center gap-2 text-lg font-bold sm:text-xl"
         >
-          <Image
-            src="/images/breadee.png"
-            alt="빵이의 추천 로고"
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0 object-contain sm:h-9 sm:w-9"
-          />
-          <span className="truncate">빵이의 추천</span>
+          
+          <span className="truncate">오늘의 추천</span>
         </Link>
 
         <nav className="hidden items-center gap-4 text-sm md:flex">
-          <Link href="/drinks">추천 둘러보기</Link>
           <Link href="/recommend">추천 테스트</Link>
+          <Link href="/drinks">추천 둘러보기</Link>
           <Link href="/favorites">즐겨찾기</Link>
         </nav>
 

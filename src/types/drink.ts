@@ -1,5 +1,6 @@
 export type DrinkCategory =
-  | "wine"
+  | "red-wine"
+  | "white-wine"
   | "whisky"
   | "cocktail"
   | "liqueur"

@@ -20,7 +20,7 @@ export default function HeroSection() {
           추천 테스트 시작
         </Link>
         <Link href="/drinks" className="rounded-xl border px-4 py-2">
-          술 둘러보기
+          추천 둘러보기
         </Link>
       </div>
     </section>

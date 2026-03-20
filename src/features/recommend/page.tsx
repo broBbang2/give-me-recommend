@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import RecommendationCard from "@/components/drink/recommendation-card";
+import { toPlainText } from "@/lib/plain-text";
 import { useRecommendationStore } from "@/stores/recommendation-store";
 import type {
   RecommendChatApiRequest,
@@ -193,7 +194,7 @@ export default function RecommendPage() {
                     : "max-w-3xl rounded-2xl bg-foreground px-4 py-3 text-sm leading-6 text-background"
                 }
               >
-                {message.content}
+                {toPlainText(message.content)}
               </div>
             </div>
           ))}
@@ -260,7 +261,7 @@ export default function RecommendPage() {
               <div>
                 <p className="text-sm font-medium">한 줄 설명</p>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {promptSummary}
+                  {toPlainText(promptSummary)}
                 </p>
               </div>
             )}
@@ -268,7 +269,7 @@ export default function RecommendPage() {
               <div>
                 <p className="text-sm font-medium">취향 요약</p>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  {userTasteSummary}
+                  {toPlainText(userTasteSummary)}
                 </p>
               </div>
             )}

@@ -29,6 +29,7 @@ export default function CommunityFeedControls({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [keyword, setKeyword] = useState(initialKeyword);
+  const appliedKeyword = searchParams.get("q")?.trim() ?? initialKeyword;
 
   useEffect(() => {
     setKeyword(initialKeyword);
@@ -68,14 +69,21 @@ export default function CommunityFeedControls({
   }, [pathname, router, searchParams]);
 
   useEffect(() => {
+    const normalizedKeyword = keyword.trim();
+
+    if (normalizedKeyword === appliedKeyword) {
+      return;
+    }
+
     const timeout = window.setTimeout(() => {
       updateParams({
-        q: keyword.trim() || null,
+        q: normalizedKeyword || null,
+        page: null,
       });
     }, 250);
 
     return () => window.clearTimeout(timeout);
-  }, [keyword, updateParams]);
+  }, [appliedKeyword, keyword, updateParams]);
 
   return (
     <section className="rounded-3xl border bg-background p-5">
@@ -104,6 +112,7 @@ export default function CommunityFeedControls({
               onChange={(event) =>
                 updateParams({
                   sort: event.target.value,
+                  page: null,
                 })
               }
               className="flex h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -125,6 +134,7 @@ export default function CommunityFeedControls({
               onClick={() =>
                 updateParams({
                   tag: null,
+                  page: null,
                 })
               }
             >
@@ -137,6 +147,7 @@ export default function CommunityFeedControls({
                 onClick={() =>
                   updateParams({
                     tag: currentTag === tag ? null : tag,
+                    page: null,
                   })
                 }
               >

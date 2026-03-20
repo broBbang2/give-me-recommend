@@ -10,6 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { normalizeRecommendationCategory } from "@/lib/drink-category";
+import { toPlainText } from "@/lib/plain-text";
 import RecommendationCard from "@/components/drink/recommendation-card";
 import type { CommunityRecommendation } from "@/types/recommendation";
 
@@ -35,7 +37,7 @@ export default function CommunityRecommendationCard({
     () =>
       [...new Set(
         recommendation.recommendations
-          .map((item) => item.category)
+          .map((item) => normalizeRecommendationCategory(item.category))
           .filter((category): category is string => Boolean(category)),
       )],
     [recommendation.recommendations],
@@ -72,7 +74,7 @@ export default function CommunityRecommendationCard({
         <div className="space-y-2">
           <p className="text-sm font-medium">대화 한 줄 요약</p>
           <p className="rounded-xl bg-muted/40 px-3 py-3 text-sm leading-6 text-muted-foreground">
-            {recommendation.assistantReply}
+            {toPlainText(recommendation.assistantReply)}
           </p>
         </div>
 
@@ -100,51 +102,55 @@ export default function CommunityRecommendationCard({
               <div className="flex flex-wrap gap-2">
                 {recommendation.recommendations.map((item) => (
                   <Badge key={`${recommendation.id}-${item.name}`} variant="outline">
-                    {item.name}
+                    {toPlainText(item.name)}
                   </Badge>
                 ))}
               </div>
 
               <div className="space-y-3">
-                {recommendation.recommendations.map((item, index) => (
-                  <div
-                    key={`${recommendation.id}-${item.name}-${index}`}
-                    className="rounded-2xl border"
-                  >
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                      onClick={() =>
-                        setOpenRecommendationIndex((prev) =>
-                          prev === index ? null : index,
-                        )
-                      }
-                    >
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">{item.name}</p>
-                          {item.category && (
-                            <Badge variant="outline">{item.category}</Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {item.category ? `${item.category} 추천` : "추천 주류"}
-                        </p>
-                      </div>
-                      {openRecommendationIndex === index ? (
-                        <ChevronUp className="size-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="size-4 text-muted-foreground" />
-                      )}
-                    </button>
+                {recommendation.recommendations.map((item, index) => {
+                  const category = normalizeRecommendationCategory(item.category);
 
-                    {openRecommendationIndex === index && (
-                      <div className="border-t p-3">
-                        <RecommendationCard recommendation={item} compact />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  return (
+                    <div
+                      key={`${recommendation.id}-${item.name}-${index}`}
+                      className="rounded-2xl border"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                        onClick={() =>
+                          setOpenRecommendationIndex((prev) =>
+                            prev === index ? null : index,
+                          )
+                        }
+                      >
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{toPlainText(item.name)}</p>
+                            {category && (
+                              <Badge variant="outline">{category}</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {category ? `${category} 추천` : "추천 주류"}
+                          </p>
+                        </div>
+                        {openRecommendationIndex === index ? (
+                          <ChevronUp className="size-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronDown className="size-4 text-muted-foreground" />
+                        )}
+                      </button>
+
+                      {openRecommendationIndex === index && (
+                        <div className="border-t p-3">
+                          <RecommendationCard recommendation={item} compact />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

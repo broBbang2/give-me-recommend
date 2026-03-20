@@ -27,11 +27,28 @@ export function calculateDrinkScore(drink: Drink, answers: UserAnswers) {
 }
 
 export function getRecommendedDrinks(drinks: Drink[], answers: UserAnswers) {
-  return [...drinks]
-    .map((drink) => ({
+  const topRecommendations: Array<Drink & { score: number }> = [];
+
+  for (const drink of drinks) {
+    const scoredDrink = {
       ...drink,
       score: calculateDrinkScore(drink, answers),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+    };
+
+    const insertIndex = topRecommendations.findIndex(
+      (item) => scoredDrink.score > item.score,
+    );
+
+    if (insertIndex === -1) {
+      topRecommendations.push(scoredDrink);
+    } else {
+      topRecommendations.splice(insertIndex, 0, scoredDrink);
+    }
+
+    if (topRecommendations.length > 3) {
+      topRecommendations.length = 3;
+    }
+  }
+
+  return topRecommendations;
 }
