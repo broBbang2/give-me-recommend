@@ -5,7 +5,7 @@ export const drinks: Drink[] = [
     id: "moscato-dasti",
     name: "모스카토 다스티",
     englishName: "Moscato d'Asti",
-    category: "wine",
+    category: "white-wine",
     imageUrl: "/images/moscato-dasti.jpg",
     abv: 5.5,
     priceRange: "medium",

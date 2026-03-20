@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
+import { normalizeRecommendationCategory } from "@/lib/drink-category";
+import { toPlainText } from "@/lib/plain-text";
 import { saveCommunityRecommendation } from "@/lib/community-recommendations";
 import type {
   RecommendChatApiRequest,
@@ -56,7 +58,13 @@ const systemPrompt = `
 9. promptSummary는 커뮤니티 피드 카드에 들어갈 한 줄 요약입니다. 예: "달달하고 도수 낮은 데이트용 술 추천".
 10. 각 recommendation의 reason에는 왜 이 술이 어울리는지 구체적으로 적습니다.
 11. category와 servingTip은 가능하면 채웁니다.
-12. 과도한 음주를 권장하지 말고, 무리 없는 표현을 사용합니다.
+12. category는 다음 중 가장 알맞은 한국어 표현으로만 작성합니다: 레드와인, 화이트와인, 스파클링와인, 와인, 위스키, 하이볼, 칵테일, 리큐르.
+13. 화이트 와인 계열은 절대 "와인"으로 뭉뚱그리지 말고 반드시 "화이트와인"으로 작성합니다.
+14. 레드 와인 계열은 반드시 "레드와인"으로 작성합니다.
+15. 답변에는 마크다운 문법을 사용하지 않습니다. 제목, 목록 기호, 굵은 글씨, 코드 블록 없이 순수 텍스트로만 작성합니다.
+16. reply에는 category:, reason:, servingTip: 같은 필드명이나 구조화된 나열을 쓰지 않고 자연스러운 문장으로만 설명합니다.
+17. 추천 상세 이유와 마시는 팁은 recommendations 필드에 작성하고, reply는 짧고 부드러운 안내 문장 위주로 작성합니다.
+18. 과도한 음주를 권장하지 말고, 무리 없는 표현을 사용합니다.
 `.trim();
 
 function getClient() {
@@ -77,26 +85,86 @@ function normalizeRecommendations(
     return [] satisfies RecommendedDrinkItem[];
   }
 
-  return recommendations
-    .map((item) => {
-      return {
-        ...item,
-        name: item.name.trim(),
-        category: item.category?.trim() || null,
-        reason: item.reason.trim(),
-        servingTip: item.servingTip?.trim() || null,
-        existingDrinkId: null,
-      } satisfies RecommendedDrinkItem;
-    })
-    .filter((item) => item.name && item.reason)
-    .filter(
-      (item, index, array) =>
-        array.findIndex(
-          (candidate) =>
-            candidate.name.toLowerCase() === item.name.toLowerCase(),
-        ) === index,
-    )
-    .slice(0, 3);
+  const normalizedRecommendations: RecommendedDrinkItem[] = [];
+  const seenNames = new Set<string>();
+
+  for (const item of recommendations) {
+    const name = toPlainText(item.name);
+    const reason = toPlainText(item.reason);
+
+    if (!name || !reason) {
+      continue;
+    }
+
+    const normalizedName = name.toLowerCase();
+
+    if (seenNames.has(normalizedName)) {
+      continue;
+    }
+
+    seenNames.add(normalizedName);
+    normalizedRecommendations.push({
+      ...item,
+      name,
+      category: normalizeRecommendationCategory(item.category),
+      reason,
+      servingTip: toPlainText(item.servingTip) || null,
+      existingDrinkId: null,
+    });
+
+    if (normalizedRecommendations.length === 3) {
+      break;
+    }
+  }
+
+  return normalizedRecommendations;
+}
+
+function hasStructuredReplyFormat(reply: string) {
+  return /\b(category|reason|servingTip|existingDrinkId)\s*:/i.test(reply);
+}
+
+function trimSentence(text: string) {
+  return text.replace(/[.!?。]+\s*$/g, "").trim();
+}
+
+function buildPlainReply(recommendations: RecommendedDrinkItem[]) {
+  if (recommendations.length === 0) {
+    return "";
+  }
+
+  if (recommendations.length === 1) {
+    const [item] = recommendations;
+    const reason = trimSentence(toPlainText(item.reason));
+    const servingTip = trimSentence(toPlainText(item.servingTip));
+
+    return `${item.name}을 추천드릴게요. ${reason}${servingTip ? ` ${servingTip}` : ""}`;
+  }
+
+  const names = recommendations.map((item) => item.name).join(", ");
+  const descriptions = recommendations
+    .map((item) => `${item.name}은 ${trimSentence(toPlainText(item.reason))}`)
+    .join(" ");
+
+  return `추천드릴 만한 술은 ${names}입니다. ${descriptions} 마음에 가는 스타일이 있으면 그쪽으로 더 좁혀드릴게요.`;
+}
+
+function normalizeReply(
+  reply: string,
+  recommendations: RecommendedDrinkItem[],
+  needsMoreInfo: boolean,
+) {
+  const plainReply = toPlainText(reply);
+
+  if (needsMoreInfo || recommendations.length === 0) {
+    return plainReply;
+  }
+
+  if (hasStructuredReplyFormat(plainReply)) {
+    return buildPlainReply(recommendations);
+  }
+
+  return plainReply;
 }
 
 export async function POST(request: Request) {
@@ -133,22 +201,27 @@ export async function POST(request: Request) {
       parsed.recommendations,
       parsed.needsMoreInfo,
     );
+    const normalizedReply = normalizeReply(
+      parsed.reply,
+      normalizedRecommendations,
+      parsed.needsMoreInfo,
+    );
 
     const communitySaved = parsed.needsMoreInfo
       ? false
       : await saveCommunityRecommendation({
-          promptSummary: parsed.promptSummary,
-          userTasteSummary: parsed.userTasteSummary,
-          assistantReply: parsed.reply,
+          promptSummary: toPlainText(parsed.promptSummary),
+          userTasteSummary: toPlainText(parsed.userTasteSummary),
+          assistantReply: normalizedReply,
           recommendations: normalizedRecommendations,
         });
 
     const payload: RecommendChatApiResponse = {
-      reply: parsed.reply,
+      reply: normalizedReply,
       needsMoreInfo: parsed.needsMoreInfo,
-      followUpQuestion: parsed.followUpQuestion,
-      promptSummary: parsed.promptSummary,
-      userTasteSummary: parsed.userTasteSummary,
+      followUpQuestion: toPlainText(parsed.followUpQuestion) || null,
+      promptSummary: toPlainText(parsed.promptSummary),
+      userTasteSummary: toPlainText(parsed.userTasteSummary),
       recommendations: normalizedRecommendations,
       communitySaved,
     };

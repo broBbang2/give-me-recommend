@@ -1,16 +1,34 @@
 import RecommendationCard from "@/components/drink/recommendation-card";
 import SectionTitle from "@/components/common/section-title";
 import { getCommunityRecommendations } from "@/lib/community-recommendations";
+import type { RecommendedDrinkItem } from "@/types/recommendation";
+
+function getRotatingRecommendation(recommendations: RecommendedDrinkItem[]) {
+  if (recommendations.length === 0) {
+    return null;
+  }
+
+  const intervalMs = 5 * 60 * 1000;
+  const currentBucket = Math.floor(Date.now() / intervalMs);
+  const recommendationIndex = currentBucket % recommendations.length;
+
+  return recommendations[recommendationIndex] ?? null;
+}
 
 export default async function TodayRecommendation() {
-  const [latestRecommendation] = await getCommunityRecommendations({ limit: 1 });
-  const todayRecommendation = latestRecommendation?.recommendations[0] ?? null;
+  const recentRecommendations = await getCommunityRecommendations({ limit: 12 });
+  const rotatingRecommendations = [...new Map(
+    recentRecommendations
+      .flatMap((item) => item.recommendations)
+      .map((recommendation) => [recommendation.name.trim().toLowerCase(), recommendation]),
+  ).values()];
+  const todayRecommendation = getRotatingRecommendation(rotatingRecommendations);
 
   return (
     <section>
       <SectionTitle
-        title="오늘의 술 추천"
-        description="최근 대화 추천에서 나온 주류를 살펴보세요."
+        title="오늘의 추천"
+        description="최근 추천 결과를 보여드려요."
       />
       {todayRecommendation ? (
         <RecommendationCard recommendation={todayRecommendation} />
