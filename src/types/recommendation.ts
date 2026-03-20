@@ -8,15 +8,22 @@ export interface UserAnswers {
   beginner: boolean | "any";
 }
 
-export interface QuestionOption<T = string | number | boolean> {
+export interface QuestionOption<T = string> {
   label: string;
   value: T;
 }
 
-export interface QuestionItem {
-  id: keyof UserAnswers;
+export interface SurveyQuestion {
+  id: number;
   question: string;
-  options: QuestionOption[];
+  options: QuestionOption<string>[];
+}
+
+export interface SurveyAnswer {
+  questionId: number;
+  question: string;
+  label: string;
+  value: string;
 }
 
 export type RecommendChatRole = "user" | "assistant";
@@ -32,11 +39,25 @@ export interface RecommendedDrinkItem {
   category: string | null;
   reason: string;
   servingTip: string | null;
+  foodPairing: string | null;
+  pairingReason: string | null;
   existingDrinkId: string | null;
+}
+
+export interface FavoriteRecommendation extends RecommendedDrinkItem {
+  favoriteId: string;
+  savedAt: string;
+}
+
+export interface RecommendWeatherContext {
+  locationLabel: string;
+  todaySummary: string;
+  tomorrowSummary: string;
 }
 
 export interface RecommendChatApiRequest {
   messages: Array<Pick<RecommendChatMessage, "role" | "content">>;
+  weather?: RecommendWeatherContext | null;
 }
 
 export interface RecommendChatApiResponse {
@@ -46,6 +67,7 @@ export interface RecommendChatApiResponse {
   promptSummary: string;
   userTasteSummary: string;
   recommendations: RecommendedDrinkItem[];
+  weather: RecommendWeatherContext | null;
   communitySaved: boolean;
 }
 

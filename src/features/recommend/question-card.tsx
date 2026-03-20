@@ -1,15 +1,18 @@
 "use client";
 
-import { QuestionItem } from "@/types/recommendation";
+import { cn } from "@/lib/utils";
+import { SurveyQuestion } from "@/types/recommendation";
 
 interface QuestionCardProps {
-  question: QuestionItem;
-  onSelect: (value: string | number | boolean) => void;
+  question: SurveyQuestion;
+  selectedValue?: string;
+  onSelect: (value: string) => void;
 }
 
 export default function QuestionCard({
   question,
-  onSelect
+  selectedValue,
+  onSelect,
 }: QuestionCardProps) {
   return (
     <div className="rounded-2xl border p-6">
@@ -21,7 +24,11 @@ export default function QuestionCard({
             key={String(option.value)}
             type="button"
             onClick={() => onSelect(option.value)}
-            className="rounded-xl border px-4 py-3 text-left hover:bg-muted"
+            className={cn(
+              "rounded-xl border px-4 py-3 text-left transition hover:bg-muted",
+              selectedValue === option.value &&
+                "border-primary bg-primary/10 text-foreground",
+            )}
           >
             {option.label}
           </button>

@@ -11,13 +11,14 @@ import {
 } from "@/lib/community-recommendations";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 interface DrinksPageProps {
   searchParams?: Promise<{
     q?: string;
     sort?: string;
     tag?: string;
+    detailTag?: string;
     page?: string;
   }>;
 }
@@ -63,11 +64,23 @@ export default async function DrinksPage({ searchParams }: DrinksPageProps) {
   const keyword = resolvedSearchParams.q?.trim() ?? "";
   const tag = resolvedSearchParams.tag?.trim() ?? "";
   const currentPage = Math.max(1, Number.parseInt(resolvedSearchParams.page ?? "1", 10) || 1);
+  const hasLegacyDetailTag = Boolean(resolvedSearchParams.detailTag?.trim());
   const currentSort = sortOptions.some(
     (option) => option.value === resolvedSearchParams.sort,
   )
     ? (resolvedSearchParams.sort as (typeof sortOptions)[number]["value"])
     : "latest";
+  if (hasLegacyDetailTag) {
+    redirect(
+      getPageLink({
+        keyword,
+        tag,
+        sort: currentSort,
+        page: currentPage,
+      }),
+    );
+  }
+
   const [totalCount, availableTags] = await Promise.all([
     getCommunityRecommendationCount({
       keyword,
@@ -114,30 +127,15 @@ export default async function DrinksPage({ searchParams }: DrinksPageProps) {
   return (
     <PageContainer className="space-y-8">
       <section className="rounded-3xl border bg-muted/20 p-6">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <SectionTitle
-              title="추천 둘러보기"
-              description="다른 사용자들이 AI와 대화해서 받은 추천 결과를 커뮤니티 피드처럼 모아봤어요."
-            />
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              어떤 상황에서 어떤 술을 찾았는지, 그리고 바텐더가 어떤 주류를
-              추천했는지 한눈에 둘러볼 수 있어요.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground">피드 수</p>
-              <p className="mt-1 text-2xl font-bold">{totalCount}</p>
-            </div>
-            <div className="rounded-2xl border bg-background px-4 py-3">
-              <p className="text-xs text-muted-foreground">업데이트</p>
-              <p className="mt-1 text-sm font-medium">
-                {sortOptions.find((option) => option.value === currentSort)?.label}
-              </p>
-            </div>
-          </div>
+        <div className="space-y-3">
+          <SectionTitle
+            title="추천 둘러보기"
+            description="다른 사용자들이 AI와 대화해서 받은 추천 결과를 커뮤니티 피드처럼 모아봤어요."
+          />
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+            어떤 상황에서 어떤 술을 찾았는지, 그리고 바텐더가 어떤 주류를
+            추천했는지 한눈에 둘러볼 수 있어요.
+          </p>
         </div>
       </section>
 

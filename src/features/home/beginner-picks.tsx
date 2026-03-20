@@ -6,7 +6,7 @@ export default async function BeginnerPicks() {
   const beginnerRecommendations = await getPopularBeginnerRecommendations(5);
 
   return (
-    <section>
+    <section className="rounded-3xl border border-border/70 bg-card/35 p-6">
       <SectionTitle
         title="입문자 추천"
         description="실제 대화 추천에서 자주 언급된 주류 5가지를 모았어요."

@@ -9,7 +9,8 @@ export default function SectionTitle({
 }: SectionTitleProps) {
   return (
     <div className="mb-6">
-      <h2 className="text-2xl font-bold">{title}</h2>
+      <div className="mb-3 h-px w-16 bg-primary/70" />
+      <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
       {description && (
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       )}

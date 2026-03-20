@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import {
+  RecommendChatApiResponse,
   RecommendChatMessage,
   RecommendChatRole,
+  RecommendWeatherContext,
   RecommendedDrinkItem,
 } from "@/types/recommendation";
 
@@ -21,10 +23,14 @@ interface RecommendationState {
   recommendations: RecommendedDrinkItem[];
   promptSummary: string;
   userTasteSummary: string;
+  weather: RecommendWeatherContext | null;
   communitySaved: boolean;
   status: "idle" | "loading" | "error";
   error: string | null;
   addMessage: (role: RecommendChatRole, content: string) => void;
+  startRequest: (userMessage: string) => void;
+  finishRequest: (payload: RecommendChatApiResponse) => void;
+  failRequest: (error: string) => void;
   setRecommendations: (recommendations: RecommendedDrinkItem[]) => void;
   setPromptSummary: (summary: string) => void;
   setUserTasteSummary: (summary: string) => void;
@@ -39,6 +45,7 @@ export const useRecommendationStore = create<RecommendationState>((set) => ({
   recommendations: [],
   promptSummary: "",
   userTasteSummary: "",
+  weather: null,
   communitySaved: false,
   status: "idle",
   error: null,
@@ -53,6 +60,47 @@ export const useRecommendationStore = create<RecommendationState>((set) => ({
         },
       ],
     })),
+  startRequest: (userMessage) =>
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: userMessage,
+        },
+      ],
+      recommendations: [],
+      promptSummary: "",
+      userTasteSummary: "",
+      weather: null,
+      communitySaved: false,
+      status: "loading",
+      error: null,
+    })),
+  finishRequest: (payload) =>
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: payload.reply,
+        },
+      ],
+      recommendations: payload.recommendations,
+      promptSummary: payload.promptSummary,
+      userTasteSummary: payload.userTasteSummary,
+      weather: payload.weather,
+      communitySaved: payload.communitySaved,
+      status: "idle",
+      error: null,
+    })),
+  failRequest: (error) =>
+    set({
+      status: "error",
+      error,
+    }),
   setRecommendations: (recommendations) => set({ recommendations }),
   setPromptSummary: (promptSummary) => set({ promptSummary }),
   setUserTasteSummary: (userTasteSummary) => set({ userTasteSummary }),
@@ -65,6 +113,7 @@ export const useRecommendationStore = create<RecommendationState>((set) => ({
       recommendations: [],
       promptSummary: "",
       userTasteSummary: "",
+      weather: null,
       communitySaved: false,
       status: "idle",
       error: null,

@@ -8,6 +8,7 @@ import { saveCommunityRecommendation } from "@/lib/community-recommendations";
 import type {
   RecommendChatApiRequest,
   RecommendChatApiResponse,
+  RecommendWeatherContext,
   RecommendedDrinkItem,
 } from "@/types/recommendation";
 
@@ -21,6 +22,14 @@ const requestSchema = z.object({
     )
     .min(1)
     .max(20),
+  weather: z
+    .object({
+      locationLabel: z.string().trim().min(1).max(100),
+      todaySummary: z.string().trim().min(1).max(300),
+      tomorrowSummary: z.string().trim().min(1).max(300),
+    })
+    .nullable()
+    .optional(),
 });
 
 const responseSchema = z.object({
@@ -36,6 +45,8 @@ const responseSchema = z.object({
         category: z.string().nullable(),
         reason: z.string(),
         servingTip: z.string().nullable(),
+        foodPairing: z.string().nullable(),
+        pairingReason: z.string().nullable(),
         existingDrinkId: z.string().nullable(),
       }),
     )
@@ -58,13 +69,16 @@ const systemPrompt = `
 9. promptSummary는 커뮤니티 피드 카드에 들어갈 한 줄 요약입니다. 예: "달달하고 도수 낮은 데이트용 술 추천".
 10. 각 recommendation의 reason에는 왜 이 술이 어울리는지 구체적으로 적습니다.
 11. category와 servingTip은 가능하면 채웁니다.
-12. category는 다음 중 가장 알맞은 한국어 표현으로만 작성합니다: 레드와인, 화이트와인, 스파클링와인, 와인, 위스키, 하이볼, 칵테일, 리큐르.
-13. 화이트 와인 계열은 절대 "와인"으로 뭉뚱그리지 말고 반드시 "화이트와인"으로 작성합니다.
-14. 레드 와인 계열은 반드시 "레드와인"으로 작성합니다.
-15. 답변에는 마크다운 문법을 사용하지 않습니다. 제목, 목록 기호, 굵은 글씨, 코드 블록 없이 순수 텍스트로만 작성합니다.
-16. reply에는 category:, reason:, servingTip: 같은 필드명이나 구조화된 나열을 쓰지 않고 자연스러운 문장으로만 설명합니다.
-17. 추천 상세 이유와 마시는 팁은 recommendations 필드에 작성하고, reply는 짧고 부드러운 안내 문장 위주로 작성합니다.
-18. 과도한 음주를 권장하지 말고, 무리 없는 표현을 사용합니다.
+12. 각 recommendation에는 술과 함께 곁들이기 좋은 안주를 foodPairing에 1개씩 적고, pairingReason에 잘 어울리는 이유를 짧게 적습니다.
+13. category는 다음 중 가장 알맞은 한국어 표현으로만 작성합니다: 레드와인, 화이트와인, 스파클링와인, 와인, 위스키, 칵테일.
+14. 화이트 와인 계열은 절대 "와인"으로 뭉뚱그리지 말고 반드시 "화이트와인"으로 작성합니다.
+15. 레드 와인 계열은 반드시 "레드와인"으로 작성합니다.
+16. 하이볼과 리큐르 계열은 category를 따로 만들지 말고 반드시 "칵테일"로 작성합니다.
+17. weather 정보가 주어지면 오늘과 내일 날씨 차이를 자연스럽게 반영해 추천합니다.
+18. 답변에는 마크다운 문법을 사용하지 않습니다. 제목, 목록 기호, 굵은 글씨, 코드 블록 없이 순수 텍스트로만 작성합니다.
+19. reply에는 category:, reason:, servingTip:, foodPairing:, pairingReason: 같은 필드명이나 구조화된 나열을 쓰지 않고 자연스러운 문장으로만 설명합니다.
+20. 추천 상세 이유, 마시는 팁, 안주 페어링은 recommendations 필드에 작성하고, reply는 짧고 부드러운 안내 문장 위주로 작성합니다.
+21. 과도한 음주를 권장하지 말고, 무리 없는 표현을 사용합니다.
 `.trim();
 
 function getClient() {
@@ -109,6 +123,8 @@ function normalizeRecommendations(
       category: normalizeRecommendationCategory(item.category),
       reason,
       servingTip: toPlainText(item.servingTip) || null,
+      foodPairing: toPlainText(item.foodPairing) || null,
+      pairingReason: toPlainText(item.pairingReason) || null,
       existingDrinkId: null,
     });
 
@@ -121,7 +137,7 @@ function normalizeRecommendations(
 }
 
 function hasStructuredReplyFormat(reply: string) {
-  return /\b(category|reason|servingTip|existingDrinkId)\s*:/i.test(reply);
+  return /\b(category|reason|servingTip|foodPairing|pairingReason|existingDrinkId)\s*:/i.test(reply);
 }
 
 function trimSentence(text: string) {
@@ -167,11 +183,32 @@ function normalizeReply(
   return plainReply;
 }
 
+function normalizeWeatherContext(
+  weather: RecommendChatApiRequest["weather"],
+): RecommendWeatherContext | null {
+  if (!weather) {
+    return null;
+  }
+
+  return {
+    locationLabel: toPlainText(weather.locationLabel),
+    todaySummary: toPlainText(weather.todaySummary),
+    tomorrowSummary: toPlainText(weather.tomorrowSummary),
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const json = (await request.json()) as RecommendChatApiRequest;
-    const { messages } = requestSchema.parse(json);
+    const { messages, weather } = requestSchema.parse(json);
     const client = getClient();
+    const normalizedWeather = normalizeWeatherContext(weather);
+    const weatherContextMessage = normalizedWeather
+      ? `참고할 날씨 정보:
+위치: ${normalizedWeather.locationLabel}
+${normalizedWeather.todaySummary}
+${normalizedWeather.tomorrowSummary}`
+      : null;
 
     const response = await client.responses.parse({
       model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
@@ -180,6 +217,14 @@ export async function POST(request: Request) {
           role: "system",
           content: systemPrompt,
         },
+        ...(weatherContextMessage
+          ? [
+              {
+                role: "system" as const,
+                content: weatherContextMessage,
+              },
+            ]
+          : []),
         ...messages,
       ],
       store: false,
@@ -223,6 +268,7 @@ export async function POST(request: Request) {
       promptSummary: toPlainText(parsed.promptSummary),
       userTasteSummary: toPlainText(parsed.userTasteSummary),
       recommendations: normalizedRecommendations,
+      weather: normalizedWeather,
       communitySaved,
     };
 

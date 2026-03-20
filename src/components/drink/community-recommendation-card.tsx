@@ -10,7 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { normalizeRecommendationCategory } from "@/lib/drink-category";
+import {
+  getDisplayRecommendationCategory,
+  getRecommendationTagClassName,
+  simplifyRecommendationTag,
+} from "@/lib/drink-category";
 import { toPlainText } from "@/lib/plain-text";
 import RecommendationCard from "@/components/drink/recommendation-card";
 import type { CommunityRecommendation } from "@/types/recommendation";
@@ -37,8 +41,13 @@ export default function CommunityRecommendationCard({
     () =>
       [...new Set(
         recommendation.recommendations
-          .map((item) => normalizeRecommendationCategory(item.category))
-          .filter((category): category is string => Boolean(category)),
+          .map((item) => simplifyRecommendationTag(item.category))
+          .filter(
+            (
+              category,
+            ): category is Exclude<ReturnType<typeof simplifyRecommendationTag>, null> =>
+              Boolean(category),
+          ),
       )],
     [recommendation.recommendations],
   );
@@ -46,22 +55,24 @@ export default function CommunityRecommendationCard({
   return (
     <Card className="h-full overflow-hidden border-border/70">
       <CardHeader className="space-y-4 border-b bg-muted/30">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">커뮤니티 추천</Badge>
-            <Badge variant="outline">익명 사용자</Badge>
-          </div>
-          <Badge variant="outline">{formatDate(recommendation.createdAt)}</Badge>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <CardTitle className="text-xl leading-snug">{recommendation.promptSummary}</CardTitle>
+          <Badge variant="outline" className="shrink-0 self-start">
+            {formatDate(recommendation.createdAt)}
+          </Badge>
         </div>
         <div className="space-y-2">
-          <CardTitle className="text-xl">{recommendation.promptSummary}</CardTitle>
           <CardDescription className="leading-6">
             {recommendation.userTasteSummary}
           </CardDescription>
           {categoryTags.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
               {categoryTags.map((tag) => (
-                <Badge key={`${recommendation.id}-${tag}`} variant="outline">
+                <Badge
+                  key={`${recommendation.id}-${tag}`}
+                  variant="outline"
+                  className={getRecommendationTagClassName(tag)}
+                >
                   {tag}
                 </Badge>
               ))}
@@ -101,7 +112,13 @@ export default function CommunityRecommendationCard({
             <div className="space-y-4 border-t p-4">
               <div className="flex flex-wrap gap-2">
                 {recommendation.recommendations.map((item) => (
-                  <Badge key={`${recommendation.id}-${item.name}`} variant="outline">
+                  <Badge
+                    key={`${recommendation.id}-${item.name}`}
+                    variant="outline"
+                    className={getRecommendationTagClassName(
+                      getDisplayRecommendationCategory(item.category),
+                    )}
+                  >
                     {toPlainText(item.name)}
                   </Badge>
                 ))}
@@ -109,7 +126,7 @@ export default function CommunityRecommendationCard({
 
               <div className="space-y-3">
                 {recommendation.recommendations.map((item, index) => {
-                  const category = normalizeRecommendationCategory(item.category);
+                  const category = getDisplayRecommendationCategory(item.category);
 
                   return (
                     <div
@@ -129,7 +146,12 @@ export default function CommunityRecommendationCard({
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-medium">{toPlainText(item.name)}</p>
                             {category && (
-                              <Badge variant="outline">{category}</Badge>
+                              <Badge
+                                variant="outline"
+                                className={getRecommendationTagClassName(category)}
+                              >
+                                {category}
+                              </Badge>
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground">

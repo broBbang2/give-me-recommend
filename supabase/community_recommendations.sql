@@ -8,6 +8,7 @@ create table if not exists public.community_recommendations (
   assistant_reply text not null,
   recommendations jsonb not null,
   recommendation_categories text[] not null default '{}',
+  recommendation_detail_tags text[] not null default '{}',
   primary_drink_id text,
   primary_drink_name text,
   is_public boolean not null default true
@@ -16,8 +17,51 @@ create table if not exists public.community_recommendations (
 alter table public.community_recommendations
   add column if not exists recommendation_categories text[] not null default '{}';
 
+alter table public.community_recommendations
+  add column if not exists recommendation_detail_tags text[] not null default '{}';
+
 update public.community_recommendations
 set recommendation_categories = coalesce(
+  (
+    select array_agg(distinct normalized_category order by normalized_category)
+    from (
+      select case
+        when normalized_key in ('redwine', '레드와인', '적포도주') then '와인'
+        when normalized_key in ('whitewine', '화이트와인', '백포도주') then '와인'
+        when normalized_key in ('sparklingwine', '스파클링와인') then '와인'
+        when normalized_key in ('wine', '와인') then '와인'
+        when normalized_key in ('whisky', 'whiskey', '위스키') then '위스키'
+        when normalized_key in ('cocktail', '칵테일') then '칵테일'
+        when normalized_key in ('liqueur', '리큐르') then '리큐르'
+        when normalized_key in ('highball', '하이볼') then '하이볼'
+        else null
+      end as normalized_category
+      from (
+        select
+          trim(recommendation ->> 'category') as raw_category,
+          lower(regexp_replace(trim(recommendation ->> 'category'), '[[:space:]_-]+', '', 'g')) as normalized_key
+        from jsonb_array_elements(recommendations) as recommendation
+        where coalesce(trim(recommendation ->> 'category'), '') <> ''
+      ) categories
+      where case
+        when normalized_key in ('redwine', '레드와인', '적포도주') then '와인'
+        when normalized_key in ('whitewine', '화이트와인', '백포도주') then '와인'
+        when normalized_key in ('sparklingwine', '스파클링와인') then '와인'
+        when normalized_key in ('wine', '와인') then '와인'
+        when normalized_key in ('whisky', 'whiskey', '위스키') then '위스키'
+        when normalized_key in ('cocktail', '칵테일') then '칵테일'
+        when normalized_key in ('liqueur', '리큐르') then '리큐르'
+        when normalized_key in ('highball', '하이볼') then '하이볼'
+        else null
+      end is not null
+    ) normalized_categories
+  ),
+  '{}'
+)
+where coalesce(array_length(recommendation_categories, 1), 0) = 0;
+
+update public.community_recommendations
+set recommendation_detail_tags = coalesce(
   (
     select array_agg(distinct normalized_category order by normalized_category)
     from (
@@ -43,7 +87,7 @@ set recommendation_categories = coalesce(
   ),
   '{}'
 )
-where coalesce(array_length(recommendation_categories, 1), 0) = 0;
+where coalesce(array_length(recommendation_detail_tags, 1), 0) = 0;
 
 create index if not exists community_recommendations_created_at_idx
   on public.community_recommendations (created_at desc);
@@ -58,6 +102,10 @@ create index if not exists community_recommendations_recommendations_gin_idx
 create index if not exists community_recommendations_recommendation_categories_gin_idx
   on public.community_recommendations
   using gin (recommendation_categories);
+
+create index if not exists community_recommendations_recommendation_detail_tags_gin_idx
+  on public.community_recommendations
+  using gin (recommendation_detail_tags);
 
 alter table public.community_recommendations enable row level security;
 
