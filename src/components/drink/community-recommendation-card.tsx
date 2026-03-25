@@ -110,20 +110,6 @@ export default function CommunityRecommendationCard({
 
           {isRecommendationsOpen && (
             <div className="space-y-4 border-t p-4">
-              <div className="flex flex-wrap gap-2">
-                {recommendation.recommendations.map((item) => (
-                  <Badge
-                    key={`${recommendation.id}-${item.name}`}
-                    variant="outline"
-                    className={getRecommendationTagClassName(
-                      getDisplayRecommendationCategory(item.category),
-                    )}
-                  >
-                    {toPlainText(item.name)}
-                  </Badge>
-                ))}
-              </div>
-
               <div className="space-y-3">
                 {recommendation.recommendations.map((item, index) => {
                   const category = getDisplayRecommendationCategory(item.category);

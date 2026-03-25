@@ -100,7 +100,6 @@ export default function RecommendationCard({
 
   const detailDescription = drinkDetail?.description ?? recommendation.reason;
   const detailPriceLabel = drinkDetail ? priceRangeLabelMap[drinkDetail.priceRange] : null;
-  const detailImageLabel = drinkDetail?.englishName ?? recommendation.name;
 
   const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== "Enter" && event.key !== " ") {
@@ -172,27 +171,6 @@ export default function RecommendationCard({
 
       <Sheet open={isDetailOpen} onOpenChange={setIsDetailOpen}>
         <SheetContent side="center" className="overflow-y-auto p-0">
-          <div className="overflow-hidden rounded-t-2xl">
-            {drinkDetail?.imageUrl ? (
-              <div className="relative h-52 w-full bg-muted">
-                <img
-                  src={drinkDetail.imageUrl}
-                  alt={recommendation.name}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : (
-              <div
-                className={cn(
-                  "flex h-52 w-full items-center justify-center bg-gradient-to-br text-2xl font-semibold",
-                  tone?.card ?? "from-card to-muted",
-                )}
-              >
-                {detailImageLabel}
-              </div>
-            )}
-          </div>
-
           <SheetHeader className="space-y-3 p-5">
             <div className="flex flex-wrap items-center gap-2">
               {category && (
