@@ -493,14 +493,14 @@ export default function RecommendPage() {
                     이번 대화에서 추천된 술 목록입니다.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-2">
+                <CardContent className="space-y-2">
                   {recommendations.map((item, index) => (
-                    <span
+                    <div
                       key={`${item.name}-badge-${index}`}
-                      className="rounded-full border px-3 py-1 text-sm"
+                      className="rounded-xl border border-border/70 px-3 py-2 text-sm text-muted-foreground"
                     >
-                      {item.name}
-                    </span>
+                      {index + 1}. {item.name}
+                    </div>
                   ))}
                 </CardContent>
               </Card>
