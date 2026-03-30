@@ -32,6 +32,51 @@ interface RecommendationCardProps {
   compact?: boolean;
 }
 
+function hashStringToSeed(input: string) {
+  // FNV-1a 32bit
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a += 0x6d2b79f5;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function buildRandomCardGradient(seedText: string) {
+  const rand = mulberry32(hashStringToSeed(seedText));
+  const hue1 = 120 + rand() * 70; // 120 ~ 190 (초록~청록 계열)
+  const hue2 = 120 + rand() * 70;
+  const alpha1 = 0.16 + rand() * 0.22;
+  const alpha2 = 0.10 + rand() * 0.18;
+
+  const borderColor = `oklch(0.62 0.14 ${hue1.toFixed(1)} / ${Math.min(
+    0.55,
+    alpha1 + 0.12,
+  ).toFixed(2)})`;
+
+  const backgroundImage = [
+    `radial-gradient(900px circle at 20% 0%, oklch(0.62 0.14 ${hue1.toFixed(
+      1,
+    )} / ${alpha1.toFixed(2)}) 0%, transparent 62%)`,
+    `radial-gradient(650px circle at 85% 10%, oklch(0.62 0.14 ${hue2.toFixed(
+      1,
+    )} / ${alpha2.toFixed(2)}) 0%, transparent 55%)`,
+    `linear-gradient(180deg, oklch(0.19 0.028 145 / 0.92) 0%, oklch(0.19 0.028 145 / 1) 100%)`,
+  ].join(",");
+
+  return { backgroundImage, borderColor };
+}
+
 const categoryToneMap: Record<
   string,
   { card: string; badge: string; title: string }
@@ -88,6 +133,13 @@ export default function RecommendationCard({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const category = getDisplayRecommendationCategory(recommendation.category);
   const tone = category ? categoryToneMap[category] : null;
+  const gradientSeed = recommendation.existingDrinkId
+    ? `id:${recommendation.existingDrinkId}`
+    : `name:${recommendation.name}`;
+  const cardGradient = useMemo(
+    () => buildRandomCardGradient(gradientSeed),
+    [gradientSeed],
+  );
   const drinkDetail = useMemo(() => {
     const normalizedName = recommendation.name.trim().toLowerCase();
 
@@ -120,8 +172,12 @@ export default function RecommendationCard({
         className={cn(
           "h-full cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           compact && "border-dashed",
-          tone?.card,
+          "border border-border/50 bg-transparent",
         )}
+        style={{
+          backgroundImage: cardGradient.backgroundImage,
+          borderColor: cardGradient.borderColor,
+        }}
       >
         <CardHeader className={compact ? "space-y-2 pb-3" : "space-y-3"}>
           <div className="flex items-start justify-between gap-3">

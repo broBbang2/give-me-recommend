@@ -63,7 +63,7 @@ function TemperatureRange({ day }: { day: WeatherDaySnapshot }) {
 
   return (
     <span>
-      {day.minTemperature} - {day.maxTemperature}°
+      {day.minTemperature} / {day.maxTemperature}°
     </span>
   );
 }

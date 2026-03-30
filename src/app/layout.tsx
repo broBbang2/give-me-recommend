@@ -1,6 +1,7 @@
 import "./globals.css";
 import Header from "@/components/common/header";
 import Footer from "@/components/common/footer";
+import RecommendationReadyNotifier from "@/components/common/recommendation-ready-notifier";
 
 export const metadata = {
   title: "알초추",
@@ -18,6 +19,7 @@ export default function RootLayout({
         <Header />
         <main>{children}</main>
         <Footer />
+        <RecommendationReadyNotifier />
       </body>
     </html>
   );

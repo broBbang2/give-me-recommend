@@ -1,8 +1,12 @@
 import Link from "next/link";
+import TodayVisitors from "@/features/home/today-visitors";
 
 export default function HeroSection() {
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/70 px-6 py-12 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+    <section className="relative rounded-3xl border border-border/80 bg-card/70 px-6 py-12 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+      <div className="absolute right-4 top-4 z-10">
+        <TodayVisitors variant="compact" />
+      </div>
       <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight">
         처음 마시는 한 잔,
         <br />

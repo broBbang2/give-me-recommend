@@ -449,7 +449,8 @@ export async function getCommunityRecommendations(options?: {
       .slice(offset, offset + limit);
   }
 
-  return recommendations.slice(offset, offset + limit);
+  // `range(offset, …)`로 이미 페이지 단위만 왔으므로 인덱스는 0부터입니다. 여기서 `slice(offset, …)`를 쓰면 2페이지부터 빈 배열이 됩니다.
+  return recommendations;
 }
 
 export async function getCommunityRecommendationCount(options?: {
@@ -584,7 +585,8 @@ async function getLegacyCommunityRecommendationCount(options: {
   ).length;
 }
 
-export async function getCommunityRecommendationTags(limit = 200) {
+/** 최근 행에서 태그 후보를 모읍니다. 행 수를 줄이면 첫 로딩이 가벼워집니다(태그 종류는 보통 상위 샘플에도 충분히 반영됨). */
+export async function getCommunityRecommendationTags(limit = 100) {
   const supabase = getSupabaseServerClient();
 
   if (!supabase) {

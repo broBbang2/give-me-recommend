@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getRecommendationTagClassName } from "@/lib/drink-category";
+import { cn } from "@/lib/utils";
 
 type SortOption = {
   value: "latest" | "oldest" | "most-recommendations";
@@ -29,6 +31,7 @@ export default function CommunityFeedControls({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [isNavigating, startTransition] = useTransition();
   const [keyword, setKeyword] = useState(initialKeyword);
   const appliedKeyword = searchParams.get("q")?.trim() ?? initialKeyword;
 
@@ -63,8 +66,10 @@ export default function CommunityFeedControls({
       return;
     }
 
-    router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
-      scroll: false,
+    startTransition(() => {
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname, {
+        scroll: false,
+      });
     });
   }, [pathname, router, searchParams]);
 
@@ -86,8 +91,22 @@ export default function CommunityFeedControls({
   }, [appliedKeyword, keyword, updateParams]);
 
   return (
-    <section className="rounded-3xl border bg-background p-5">
+    <section
+      className="rounded-3xl border bg-background p-5"
+      aria-busy={isNavigating}
+    >
       <div className="flex flex-col gap-4">
+        {isNavigating ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-sm text-muted-foreground"
+          >
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden />
+            <span>검색 결과를 불러오는 중입니다…</span>
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="flex-1 space-y-2">
             <label className="text-sm font-medium" htmlFor="community-search">
@@ -126,7 +145,12 @@ export default function CommunityFeedControls({
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div
+          className={cn(
+            "space-y-2 transition-opacity duration-200",
+            isNavigating && "pointer-events-none opacity-60",
+          )}
+        >
           <p className="text-sm font-medium">주종 태그</p>
           <div className="flex flex-wrap gap-2">
             <button

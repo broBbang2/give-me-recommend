@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, KeyboardEvent, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import PageContainer from "@/components/common/page-container";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,10 +56,19 @@ export default function RecommendPage() {
   const [mode, setMode] = useState<RecommendMode>("chat");
   const [input, setInput] = useState("");
   const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const shouldAutoOpenModalRef = useRef(true);
+  const isMountedRef = useRef(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answersByQuestionId, setAnswersByQuestionId] = useState<
     Record<number, SurveyAnswer>
   >({});
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const {
     messages,
     recommendations,
@@ -73,6 +82,25 @@ export default function RecommendPage() {
     failRequest,
     resetConversation,
   } = useRecommendationStore();
+
+  useEffect(() => {
+    if (recommendations.length === 0) return;
+
+    const STORAGE_KEY = "choice_recommendation_ready_v1";
+    try {
+      if (!shouldAutoOpenModalRef.current) return;
+
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? (JSON.parse(raw) as { at?: unknown }) : null;
+      if (typeof parsed?.at === "number") {
+        window.localStorage.removeItem(STORAGE_KEY);
+        setIsResultModalOpen(true);
+      }
+    } catch {
+      // JSON 파싱/로컬스토리지 접근 실패 시 조용히 무시합니다.
+    }
+  }, [recommendations.length]);
+
   const currentQuestion = survey[currentQuestionIndex];
   const selectedValue = currentQuestion
     ? answersByQuestionId[currentQuestion.id]?.value
@@ -122,9 +150,23 @@ export default function RecommendPage() {
       finishRequest(payload);
 
       if (payload.recommendations.length > 0) {
-        window.requestAnimationFrame(() => {
-          setIsResultModalOpen(true);
-        });
+        const STORAGE_KEY = "choice_recommendation_ready_v1";
+        const detail = { at: Date.now() };
+
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(detail));
+        } catch {
+          // localStorage 접근 실패 시에도 알림은 이벤트로만 전달합니다.
+        }
+
+        window.dispatchEvent(new CustomEvent("recommendation-ready", { detail }));
+
+        if (shouldAutoOpenModalRef.current && isMountedRef.current) {
+          window.requestAnimationFrame(() => {
+            if (!isMountedRef.current) return;
+            setIsResultModalOpen(true);
+          });
+        }
       }
     } catch (submitError) {
       failRequest(
@@ -142,6 +184,8 @@ export default function RecommendPage() {
       return;
     }
 
+    shouldAutoOpenModalRef.current = true;
+
     const nextMessages: RecommendChatApiRequest["messages"] = [
       ...messages.map(({ role, content }) => ({ role, content })),
       { role: "user", content: trimmedInput },
@@ -155,6 +199,8 @@ export default function RecommendPage() {
     if (orderedAnswers.length !== survey.length || status === "loading") {
       return;
     }
+
+    shouldAutoOpenModalRef.current = true;
 
     const surveyPrompt = buildSurveyPrompt(orderedAnswers);
     const nextMessages: RecommendChatApiRequest["messages"] = [
@@ -184,6 +230,7 @@ export default function RecommendPage() {
   };
 
   const handleResetConversation = () => {
+    shouldAutoOpenModalRef.current = true;
     resetConversation();
     setIsResultModalOpen(false);
     setInput("");
@@ -198,6 +245,12 @@ export default function RecommendPage() {
 
     setMode(nextMode);
     handleResetConversation();
+  };
+
+  const handleCancelWait = () => {
+    // 로딩은 계속 진행(백그라운드)하고, 완료되면 전역 알림 배너로 안내합니다.
+    shouldAutoOpenModalRef.current = false;
+    setIsResultModalOpen(false);
   };
 
   return (
@@ -268,8 +321,26 @@ export default function RecommendPage() {
 
             {status === "loading" && (
               <div className="flex justify-start">
-                <div className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-                  추천을 정리하고 있어요...
+                <div className="w-full rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span>추천을 정리하고 있어요...</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelWait}
+                      >
+                        대기 취소
+                      </Button>
+                      <Button asChild type="button" variant="outline" size="sm">
+                        <Link href="/drinks">커뮤니티로</Link>
+                      </Button>
+                      <Button asChild type="button" variant="outline" size="sm">
+                        <Link href="/">메인으로</Link>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -368,7 +439,25 @@ export default function RecommendPage() {
 
             {status === "loading" && (
               <div className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-                설문 응답을 바탕으로 추천을 정리하고 있어요...
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span>설문 응답을 바탕으로 추천을 정리하고 있어요...</span>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelWait}
+                    >
+                      대기 취소
+                    </Button>
+                    <Button asChild type="button" variant="outline" size="sm">
+                      <Link href="/drinks">커뮤니티로</Link>
+                    </Button>
+                    <Button asChild type="button" variant="outline" size="sm">
+                      <Link href="/">메인으로</Link>
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 
