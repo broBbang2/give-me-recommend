@@ -8,9 +8,8 @@
 - 홈 화면에서 오늘의 추천 술과 입문자 추천 목록 확인
 - ChatGPT 기반 대화형 술 추천
 - Supabase 기반 커뮤니티 추천 피드
-- 술 상세 페이지 탐색
+- 추천 상세 페이지 탐색
 - 관심 있는 술 즐겨찾기 저장
-- 정적 데이터 기반 빠른 프로토타이핑
 
 ## 기술 스택
 
@@ -118,7 +117,7 @@ src
 - `npm run lint` 확인 완료
 - `npm run build` 확인 완료
 
-## 커뮤니티 태그 검색 최적화 
+## 커뮤니티 태그 검색 최적화
 
 커뮤니티 피드에서 태그 검색 시 렌더링이 느렸던 주된 이유는, 태그 필터링이 데이터베이스가 아니라 서버 애플리케이션 코드에서 후처리로 이루어지고 있었기 때문입니다.
 기존에는 `community_recommendations` 테이블에서 추천 목록을 먼저 읽어온 뒤, `src/lib/community-recommendations.ts`에서 다시 `map`, `filter`, `sort`, `slice`를 거치며 태그와 키워드를 걸러냈습니다.
@@ -141,17 +140,22 @@ src
 
 기존 코드를 수정하기전 렌더링 시간이 `2.007ms`이였는데 코드 수정 후  `262ms`로 변경되었습니다.
 
+실제 성능 개선 효과는 `supabase/community_recommendations.sql` 마이그레이션이 적용된 환경에서 확인해야 합니다(미적용 시 fallback 로직으로 동작).
 
-실제 태그 검색 성능 개선 효과를 받으려면 `supabase/community_recommendations.sql`을 Supabase에 적용해야 합니다.
-적용 전에는 fallback 경로로 동작하고, 적용 후에는 태그 검색이 전용 컬럼과 인덱스를 타는 구조로 전환됩니다.
+## 커뮤니티(`/drinks`) 첫 진입 초기 로딩 지연: 원인과 해결
 
-## 알려진 제한 사항
+`/drinks` 페이지를 처음 열 때(첫 로딩) 느렸던 이유는, 첫 화면 구성을 위해 필요한 데이터 요청과 후처리 비용이 누적되는 구조였기 때문입니다.
 
-- 자동화 테스트 코드가 아직 없습니다.
-- 일부 술 데이터는 이미지 경로를 포함하고 있지만 실제 이미지 파일은 아직 추가되지 않았습니다.
-- OpenAI API 키가 없으면 AI 추천 기능을 사용할 수 없습니다.
-- Supabase 설정이나 테이블 스키마가 없으면 커뮤니티 추천 저장 및 피드 조회가 동작하지 않습니다.
-- 앱 내 데이터에 없는 술은 텍스트 추천 카드로 표시되며, 상세 페이지 연결은 되지 않습니다.
+- 초기 진입 시 `count`/`tag 후보`를 받은 뒤에야 `추천 피드`를 조회하는 대기 흐름이 있어 Supabase 호출 대기가 합산되었습니다.
+- 태그 목록 생성을 위해 최근 레코드를 더 많이 읽은 뒤(`getCommunityRecommendationTags`) JS에서 파싱/중복제거/정렬을 수행해서 초기 응답 크기와 런타임 후처리 시간이 늘어났습니다.
+- `range(offset, ...)`로 페이지 단위를 이미 잘라오는데도 일부 분기에서 추가 `slice(offset, ...)`가 적용되어 불필요한 처리/정합성 리스크가 있었습니다.
+
+해결 방법:
+
+- `src/app/drinks/page.tsx`에서 `page === 1`인 경우 `count + tags + recommendations`를 `Promise.all`로 병렬 조회하도록 변경해서 왕복 대기 시간을 줄였습니다.
+- `src/lib/community-recommendations.ts`에서 `latest/oldest`는 `range`로 이미 잘려있으므로 추가 `slice`를 제거했습니다.
+- `src/lib/community-recommendations.ts`에서 태그 후보 조회량을 `limit 200`에서 `limit 100`으로 줄여 초기 로딩 비용을 완화했습니다.
+
 
 ## 개선 아이디어
 
