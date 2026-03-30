@@ -81,13 +81,32 @@ export default async function DrinksPage({ searchParams }: DrinksPageProps) {
     );
   }
 
-  const [totalCount, availableTags] = await Promise.all([
-    getCommunityRecommendationCount({
-      keyword,
-      tag,
-    }),
-    getCommunityRecommendationTags(),
-  ]);
+  const countAndTagOptions = { keyword, tag };
+
+  /** 첫 페이지(offset 0)는 totalCount 없이도 피드를 가져올 수 있어, Supabase 왕복 1회를 줄이기 위해 count·태그·피드를 한 번에 병렬 요청합니다. */
+  let totalCount: number;
+  let availableTags: string[];
+  let recommendations: Awaited<ReturnType<typeof getCommunityRecommendations>> = [];
+
+  if (currentPage > 1) {
+    [totalCount, availableTags] = await Promise.all([
+      getCommunityRecommendationCount(countAndTagOptions),
+      getCommunityRecommendationTags(),
+    ]);
+  } else {
+    [totalCount, availableTags, recommendations] = await Promise.all([
+      getCommunityRecommendationCount(countAndTagOptions),
+      getCommunityRecommendationTags(),
+      getCommunityRecommendations({
+        limit: pageSize,
+        offset: 0,
+        keyword,
+        tag,
+        sort: currentSort,
+      }),
+    ]);
+  }
+
   const hasSupabase = isSupabaseConfigured();
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const safeCurrentPage = Math.min(currentPage, totalPages);
@@ -103,14 +122,16 @@ export default async function DrinksPage({ searchParams }: DrinksPageProps) {
     );
   }
 
-  const offset = (safeCurrentPage - 1) * pageSize;
-  const recommendations = await getCommunityRecommendations({
-    limit: pageSize,
-    offset,
-    keyword,
-    tag,
-    sort: currentSort,
-  });
+  if (currentPage > 1) {
+    const offset = (safeCurrentPage - 1) * pageSize;
+    recommendations = await getCommunityRecommendations({
+      limit: pageSize,
+      offset,
+      keyword,
+      tag,
+      sort: currentSort,
+    });
+  }
   const halfVisiblePages = Math.floor(maxVisiblePages / 2);
   let pageStart = Math.max(1, safeCurrentPage - halfVisiblePages);
   const pageEnd = Math.min(totalPages, pageStart + maxVisiblePages - 1);
