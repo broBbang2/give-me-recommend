@@ -2,6 +2,7 @@ import "./globals.css";
 import Header from "@/components/common/header";
 import Footer from "@/components/common/footer";
 import RecommendationReadyNotifier from "@/components/common/recommendation-ready-notifier";
+import VisitorTracker from "@/features/home/visitor-tracker";
 
 export const metadata = {
   title: "알초추",
@@ -17,6 +18,7 @@ export default function RootLayout({
     <html lang="ko">
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Header />
+        <VisitorTracker />
         <main>{children}</main>
         <Footer />
         <RecommendationReadyNotifier />

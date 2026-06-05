@@ -5,6 +5,7 @@ import { z } from "zod";
 import { normalizeRecommendationCategory } from "@/lib/drink-category";
 import { toPlainText } from "@/lib/plain-text";
 import { saveCommunityRecommendation } from "@/lib/community-recommendations";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type {
   RecommendChatApiRequest,
   RecommendChatApiResponse,
@@ -199,6 +200,20 @@ function normalizeWeatherContext(
 
 export async function POST(request: Request) {
   try {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "anonymous";
+
+    const { success } = await checkRateLimit(`recommend:${ip}`);
+
+    if (!success) {
+      return NextResponse.json(
+        { message: "요청이 너무 많습니다. 1시간 후 다시 시도해주세요." },
+        { status: 429, headers: { "Retry-After": "3600" } },
+      );
+    }
+
     const json = (await request.json()) as RecommendChatApiRequest;
     const { messages, weather } = requestSchema.parse(json);
     const client = getClient();
