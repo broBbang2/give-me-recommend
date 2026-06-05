@@ -140,8 +140,6 @@ src
 
 기존 코드를 수정하기전 렌더링 시간이 `2.007ms`이였는데 코드 수정 후  `262ms`로 변경되었습니다.
 
-실제 성능 개선 효과는 `supabase/community_recommendations.sql` 마이그레이션이 적용된 환경에서 확인해야 합니다(미적용 시 fallback 로직으로 동작).
-
 ## 커뮤니티(`/drinks`) 첫 진입 초기 로딩 지연: 원인과 해결
 
 `/drinks` 페이지를 처음 열 때(첫 로딩) 느렸던 이유는, 첫 화면 구성을 위해 필요한 데이터 요청과 후처리 비용이 누적되는 구조였기 때문입니다.
@@ -155,10 +153,3 @@ src
 - `src/app/drinks/page.tsx`에서 `page === 1`인 경우 `count + tags + recommendations`를 `Promise.all`로 병렬 조회하도록 변경해서 왕복 대기 시간을 줄였습니다.
 - `src/lib/community-recommendations.ts`에서 `latest/oldest`는 `range`로 이미 잘려있으므로 추가 `slice`를 제거했습니다.
 - `src/lib/community-recommendations.ts`에서 태그 후보 조회량을 `limit 200`에서 `limit 100`으로 줄여 초기 로딩 비용을 완화했습니다.
-
-
-## 개선 아이디어
-
-- 실제 상품 이미지 및 상세 메타데이터 추가
-- 로컬 스토리지 기반 즐겨찾기 영속화
-- 백엔드 또는 CMS 연동
