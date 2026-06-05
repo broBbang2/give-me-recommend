@@ -21,37 +21,22 @@ export async function POST(req: Request) {
   const parsed = requestSchema.safeParse(json);
 
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, count: 0 }, { status: 400 });
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
 
   const supabase = getSupabaseServerClient();
   if (!supabase) {
-    return NextResponse.json({ ok: false, count: 0 }, { status: 200 });
+    return NextResponse.json({ ok: false }, { status: 200 });
   }
 
-  const visitedDate = getKstDateString();
-  const visitorId = parsed.data.visitorId;
+  const { error } = await supabase.rpc("track_visitor", {
+    p_visitor_id: parsed.data.visitorId,
+    p_visited_date: getKstDateString(),
+  });
 
-  const { error: upsertError } = await supabase
-    .from("site_visitors")
-    .upsert(
-      { visitor_id: visitorId, visited_date: visitedDate },
-      { onConflict: "visitor_id,visited_date" },
-    );
-
-  if (upsertError) {
-    // 카운트는 UX용이므로 실패해도 전체 흐름이 막히지 않게 합니다.
+  if (error) {
+    return NextResponse.json({ ok: false }, { status: 200 });
   }
 
-  const { count, error: countError } = await supabase
-    .from("site_visitors")
-    .select("id", { count: "exact" })
-    .eq("visited_date", visitedDate);
-
-  if (countError) {
-    return NextResponse.json({ ok: true, count: 0 }, { status: 200 });
-  }
-
-  return NextResponse.json({ ok: true, count: count ?? 0 }, { status: 200 });
+  return NextResponse.json({ ok: true }, { status: 200 });
 }
-
