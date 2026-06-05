@@ -132,20 +132,18 @@ export default function RecommendPage() {
         } satisfies RecommendChatApiRequest),
       });
 
-      const data = (await response.json()) as
-        | RecommendChatApiResponse
-        | { message?: string };
-
       if (!response.ok) {
-        const errorMessage =
-          "message" in data
-            ? data.message ?? "추천 요청에 실패했습니다."
-            : "추천 요청에 실패했습니다.";
-
+        let errorMessage = "추천 요청에 실패했습니다.";
+        try {
+          const errorData = (await response.json()) as { message?: string };
+          if (errorData.message) errorMessage = errorData.message;
+        } catch {
+          // JSON 파싱 실패 시 기본 메시지 사용
+        }
         throw new Error(errorMessage);
       }
 
-      const payload = data as RecommendChatApiResponse;
+      const payload = (await response.json()) as RecommendChatApiResponse;
 
       finishRequest(payload);
 
@@ -243,6 +241,11 @@ export default function RecommendPage() {
       return;
     }
 
+    const hasProgress = messages.length > 0 || recommendations.length > 0 || Object.keys(answersByQuestionId).length > 0;
+    if (hasProgress && !window.confirm("모드를 전환하면 현재 진행 중인 내용이 초기화됩니다. 계속할까요?")) {
+      return;
+    }
+
     setMode(nextMode);
     handleResetConversation();
   };
@@ -298,6 +301,13 @@ export default function RecommendPage() {
       {mode === "chat" ? (
         <div className="rounded-2xl border bg-background">
           <div className="space-y-4 p-4 md:p-6">
+            {messages.length === 0 && status !== "loading" && (
+              <div className="flex justify-start">
+                <div className="max-w-3xl rounded-2xl bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
+                  안녕하세요! 어떤 술을 찾고 계신가요? 상황, 맛 취향, 도수 등 편하게 말씀해주세요.
+                </div>
+              </div>
+            )}
             {messages.map((message: RecommendChatMessage) => (
               <div
                 key={message.id}
@@ -324,22 +334,14 @@ export default function RecommendPage() {
                 <div className="w-full rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <span>추천을 정리하고 있어요...</span>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelWait}
-                      >
-                        대기 취소
-                      </Button>
-                      <Button asChild type="button" variant="outline" size="sm">
-                        <Link href="/drinks">커뮤니티로</Link>
-                      </Button>
-                      <Button asChild type="button" variant="outline" size="sm">
-                        <Link href="/">메인으로</Link>
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelWait}
+                    >
+                      대기 취소
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -441,22 +443,14 @@ export default function RecommendPage() {
               <div className="rounded-2xl bg-muted px-4 py-3 text-sm text-muted-foreground">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <span>설문 응답을 바탕으로 추천을 정리하고 있어요...</span>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancelWait}
-                    >
-                      대기 취소
-                    </Button>
-                    <Button asChild type="button" variant="outline" size="sm">
-                      <Link href="/drinks">커뮤니티로</Link>
-                    </Button>
-                    <Button asChild type="button" variant="outline" size="sm">
-                      <Link href="/">메인으로</Link>
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelWait}
+                  >
+                    대기 취소
+                  </Button>
                 </div>
               </div>
             )}
@@ -565,34 +559,13 @@ export default function RecommendPage() {
           {recommendations.length > 0 && (
             <div className="space-y-4 px-4 pb-6">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    AI가 추천한 주류를 카드 형태로 정리해 보여드립니다.
-                  </p>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  AI가 추천한 주류를 카드 형태로 정리해 보여드립니다.
+                </p>
                 <Button asChild type="button" variant="outline">
                   <Link href="/drinks">전체 술 둘러보기</Link>
                 </Button>
               </div>
-
-              <Card size="sm">
-                <CardHeader>
-                  <CardTitle>추천된 주류</CardTitle>
-                  <CardDescription>
-                    이번 대화에서 추천된 술 목록입니다.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {recommendations.map((item, index) => (
-                    <div
-                      key={`${item.name}-badge-${index}`}
-                      className="rounded-xl border border-border/70 px-3 py-2 text-sm text-muted-foreground"
-                    >
-                      {index + 1}. {item.name}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
 
               <div className="grid gap-4">
                 {recommendations.map((item, index) => (

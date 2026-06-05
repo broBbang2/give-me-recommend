@@ -671,7 +671,12 @@ export async function getPopularBeginnerRecommendations(
     .limit(200);
 
   if (error || !data) {
-    console.error("Failed to load popular beginner drinks", error);
+    console.error("Failed to load popular beginner drinks", {
+      message: (error as { message?: string } | null)?.message,
+      code: (error as { code?: string } | null)?.code,
+      details: (error as { details?: string } | null)?.details,
+      hint: (error as { hint?: string } | null)?.hint,
+    });
     return [] satisfies PopularRecommendationItem[];
   }
 

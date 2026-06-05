@@ -8,6 +8,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import NavLink from "@/components/common/nav-link";
+
+const navItems = [
+  { href: "/recommend", label: "추천 테스트" },
+  { href: "/drinks", label: "추천 둘러보기" },
+  { href: "/favorites", label: "즐겨찾기" },
+];
 
 export default function Header() {
   return (
@@ -21,9 +28,11 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-4 text-sm text-muted-foreground md:flex">
-          <Link href="/recommend" className="transition hover:text-foreground">추천 테스트</Link>
-          <Link href="/drinks" className="transition hover:text-foreground">추천 둘러보기</Link>
-          <Link href="/favorites" className="transition hover:text-foreground">즐겨찾기</Link>
+          {navItems.map(({ href, label }) => (
+            <NavLink key={href} href={href} className="transition hover:text-foreground">
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         <Sheet>
@@ -43,15 +52,16 @@ export default function Header() {
               <SheetTitle>메뉴</SheetTitle>
             </SheetHeader>
             <nav className="flex flex-col gap-2 px-4 pb-4">
-              <Link href="/drinks" className="rounded-lg px-3 py-2 hover:bg-muted">
-                술 둘러보기
-              </Link>
-              <Link href="/recommend" className="rounded-lg px-3 py-2 hover:bg-muted">
-                추천 테스트
-              </Link>
-              <Link href="/favorites" className="rounded-lg px-3 py-2 hover:bg-muted">
-                즐겨찾기
-              </Link>
+              {navItems.map(({ href, label }) => (
+                <NavLink
+                  key={href}
+                  href={href}
+                  className="rounded-lg px-3 py-2 hover:bg-muted"
+                  activeClassName="bg-muted font-medium text-foreground"
+                >
+                  {label}
+                </NavLink>
+              ))}
             </nav>
           </SheetContent>
         </Sheet>
